@@ -1,5 +1,9 @@
-fastapi[standard]
+fastapi
 uvicorn
-databases[asyncpg]
 pydantic
+pydantic[email]
+databases[asyncpg]
+asyncpg
 bcrypt
+PyJWT
+python-multipart

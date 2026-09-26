@@ -3,7 +3,7 @@ services:
     build:
       context: ./nextjs
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - ./nextjs:/src
       - /src/node_modules
@@ -15,7 +15,7 @@ services:
   db:
     image: postgres:13
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: temp
       POSTGRES_PASSWORD: temp
@@ -32,7 +32,7 @@ services:
     build:
       context: ./backend-api
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./backend-api:/src
     environment:

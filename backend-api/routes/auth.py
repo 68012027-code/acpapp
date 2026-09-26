@@ -1,37 +1,73 @@
-import secrets
-
-import bcrypt
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
+import bcrypt
+import jwt
+from datetime import datetime, timedelta, timezone
+from database import database, get_user_by_email, create_user
 
-from database import get_user_by_email, update_user_token
+router = APIRouter(prefix="/api")
 
-router = APIRouter()
+SECRET_KEY = "acp-secret-jwt-key"
+ALGORITHM = "HS256"
 
-
-class LoginRequest(BaseModel):
+class AuthRequest(BaseModel):
     email: str
     password: str
 
+def create_access_token(email: str, role: str, tier: str):
+    payload = {
+        "sub": email,
+        "role": role,
+        "tier": tier,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-class LoginResponse(BaseModel):
-    email: str
-    token: str
+@router.post("/register", status_code=201)
+async def register(payload: AuthRequest):
+    if len(payload.password) < 4:
+        raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
+    
+    existing_user = await get_user_by_email(payload.email)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_password = bcrypt.hashpw(payload.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    await create_user(payload.email, hashed_password, role="Customer", tier="Free")
+    
+    token = create_access_token(payload.email, role="Customer", tier="Free")
+    await database.execute(
+        "UPDATE users SET token = :token WHERE email = :email",
+        {"token": token, "email": payload.email}
+    )
+    
+    return {
+        "email": payload.email,
+        "role": "Customer",
+        "tier": "Free",
+        "token": token,
+        "message": "User registered successfully"
+    }
 
-
-@router.post("/login", response_model=LoginResponse)
-async def login(payload: LoginRequest):
+@router.post("/login")
+async def login(payload: AuthRequest):
     user = await get_user_by_email(payload.email)
-
-    if user is None or not bcrypt.checkpw(
-        payload.password.encode("utf-8"), user["password"].encode("utf-8")
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
-
-    token = secrets.token_urlsafe(32)
-    await update_user_token(payload.email, token)
-
-    return LoginResponse(email=payload.email, token=token)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+    
+    if not bcrypt.checkpw(payload.password.encode('utf-8'), user['password'].encode('utf-8')):
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+    
+    token = create_access_token(user['email'], user['role'], user['tier'])
+    await database.execute(
+        "UPDATE users SET token = :token WHERE email = :email",
+        {"token": token, "email": user['email']}
+    )
+    
+    return {
+        "email": user['email'],
+        "role": user['role'],
+        "tier": user['tier'],
+        "token": token
+    }
