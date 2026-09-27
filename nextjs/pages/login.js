@@ -1,105 +1,112 @@
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/router";
-
+import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import Link from 'next/link';
 
 export default function Login() {
-  const router = useRouter();
-  const [email, setEmail] = useState("demo@example.com");
-  const [password, setPassword] = useState("password");
-  const [error, setError] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setError("");
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
     setLoading(true);
 
     try {
-      const response = await fetch("/api/login", {
-        method: "POST",
+      // เรียก Endpoint /api/login แบบ JSON Payload
+      const res = await fetch('http://localhost:8001/api/login', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || "Login failed");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Invalid email or password');
       }
 
-      const data = await response.json();
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("email", data.email);
-      router.push("/");
+      // บันทึก Token (อิงตาม key "token" จาก auth.py)
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      
+      router.push('/products');
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Log in</CardTitle>
+    <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
+      <Card className="w-full max-w-md shadow-lg border-slate-200">
+        <CardHeader className="text-center space-y-1">
+          <CardTitle className="text-2xl font-bold text-slate-800">
+            MedStock Login 🏥
+          </CardTitle>
           <CardDescription>
-            Use your email and password to access the starter application.
+            Enter your email and password to access the inventory system
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm font-medium border border-red-200">
+                {error}
+              </div>
+            )}
+            
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
+              <label className="text-sm font-medium text-slate-700">Email Address</label>
               <Input
-                id="email"
                 type="email"
+                placeholder="name@example.com"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="email"
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
+              <label className="text-sm font-medium text-slate-700">Password</label>
               <Input
-                id="password"
                 type="password"
+                placeholder="••••••••"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Logging in..." : "Log in"}
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2"
+              disabled={loading}
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
             </Button>
 
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/">Back to landing page</Link>
-            </Button>
+            <div className="text-center text-sm text-slate-500 pt-2">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-blue-600 hover:underline font-semibold">
+                Register
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>
-    </main>
+    </div>
   );
 }
